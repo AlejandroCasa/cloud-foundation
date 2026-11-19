@@ -1,0 +1,4 @@
+aws_region       = "eu-west-1"
+state_bucket_arn = "arn:aws:s3:::alejandro-cloud-foundation-tfstate-change-me"
+lock_table_arn   = "arn:aws:dynamodb:eu-west-1:000000000000:table/cloud-foundation-tfstate-locks"
+alert_email      = "your-email@example.com"

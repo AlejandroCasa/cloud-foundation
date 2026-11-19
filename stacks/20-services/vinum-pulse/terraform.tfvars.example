@@ -1,0 +1,4 @@
+aws_region                     = "eu-west-1"
+environment                    = "prod"
+image_tag                      = "v0.1.0"
+reserved_concurrent_executions = 5
