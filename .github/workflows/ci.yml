@@ -1,0 +1,93 @@
+name: IaC & Policy-as-Code CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-validate:
+    name: Terraform Format & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive
+
+      - name: Validate all modules and stacks (offline)
+        run: |
+          set -euo pipefail
+          DIRS=(
+            "modules/account-guardrails"
+            "modules/fastapi-zero-cost-app"
+            "stacks/00-bootstrap"
+            "stacks/10-account-security-finops"
+            "stacks/20-services/vinum-pulse"
+            "stacks/20-services/finops-sentinel"
+            "stacks/20-services/aegis-mcp"
+          )
+          for dir in "${DIRS[@]}"; do
+            echo "=== Validating ${dir} ==="
+            terraform -chdir="${dir}" init -backend=false -input=false
+            terraform -chdir="${dir}" validate
+          done
+
+  tflint:
+    name: TFLint Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.54.0
+
+      - name: Init TFLint plugins
+        run: tflint --init
+
+      - name: Run TFLint across modules and stacks
+        run: tflint --recursive
+
+  opa-policy-guardrails:
+    name: OPA/Rego FinOps & Zero-Trust Guardrails
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run OPA Rego unit tests
+        run: |
+          docker run --rm -v "${PWD}:/work" -w /work openpolicyagent/opa:latest test /work/policy -v
+
+      - name: Run Conftest against all Terraform HCL
+        run: |
+          docker run --rm -v "${PWD}:/work" -w /work openpolicyagent/conftest:latest test --policy /work/policy modules stacks
+
+  trivy-iac-scan:
+    name: Trivy IaC Misconfiguration Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy config scan (HIGH, CRITICAL)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: .
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL

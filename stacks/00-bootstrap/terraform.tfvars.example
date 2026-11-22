@@ -1,0 +1,3 @@
+aws_region        = "eu-west-1"
+state_bucket_name = "alejandro-cloud-foundation-tfstate-change-me"
+lock_table_name   = "cloud-foundation-tfstate-locks"
